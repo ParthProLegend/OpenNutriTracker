@@ -7,6 +7,8 @@ import 'package:opennutritracker/features/add_activity/presentation/bloc/recent_
 import 'package:opennutritracker/features/add_activity/presentation/widgets/activity_item_card.dart';
 import 'package:opennutritracker/features/add_meal/presentation/widgets/no_results_widget.dart';
 import 'package:opennutritracker/generated/l10n.dart';
+import '../services/health_connect_service.dart';
+
 
 class AddActivityScreen extends StatefulWidget {
   const AddActivityScreen({super.key});
