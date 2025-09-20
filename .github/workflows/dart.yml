@@ -31,12 +31,10 @@ jobs:
 
       # Step 3: Set up Flutter SDK
       # This action downloads and installs a specific version of the Flutter SDK.
-      # Note: '3.24.0' was specified, but it's not on the stable channel. 
-      # Using a recent, confirmed stable version like '3.22.2' is recommended for consistency.
+      # Using 'stable' ensures the latest stable version of Flutter is used, which resolves the Dart SDK version conflict.
       - name: Set Up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
           channel: 'stable'
           cache: true # Caches Flutter dependencies for faster subsequent runs
 
@@ -135,3 +133,4 @@ jobs:
           token: ${{ secrets.TOKEN }}
           # If true, this will overwrite an existing release with the same tag.
           allowUpdates: true
+
