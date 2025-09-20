@@ -1,0 +1,66 @@
+# This is the name of the workflow, which will be displayed in the GitHub Actions tab.
+name: "Build Flutter APK"
+
+# This section defines the event that triggers the workflow.
+# 'workflow_dispatch' allows you to run this workflow manually from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  # A single job in this workflow, named 'build'.
+  build:
+    # The name of the job as it will appear in the GitHub UI.
+    name: Build Android APK
+    # This job will run on the latest available macOS runner.
+    runs-on: macos-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Java Development Kit (JDK)
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # Step 3: Set up Flutter SDK
+      # Using 'stable' channel to get a recent version of Flutter and its corresponding Dart SDK.
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # Step 4: Install and Upgrade Dependencies
+      # 'pub upgrade' will attempt to upgrade dependencies to the latest versions allowed by your pubspec.yaml,
+      # which should resolve the SDK version conflict.
+      - name: Install and Upgrade Dependencies
+        run: flutter pub upgrade
+
+      # Step 5: Set up Android Keystore for signing the release build
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=keystore.jks" >> android/key.properties
+
+      # Step 6: Build the Android APK (Android Package Kit)
+      - name: Build APK
+        run: flutter build apk --release
+
+      # Step 7: Upload APK as an artifact
+      # This makes the generated APK file available for download from the workflow's summary page.
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
