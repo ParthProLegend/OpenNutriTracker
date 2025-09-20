@@ -70,6 +70,14 @@ class _AddActivityScreenState extends State<AddActivityScreen>
                       context: context, searchString: searchString));
                 },
               ),
+
+              const SizedBox(height: 8),
+              TextButton.icon(
+                icon: const Icon(Icons.download_for_offline_outlined),
+                label: const Text('Import from Health Connect'),
+                onPressed: _importFromHealthConnect,
+              ),
+              
               const SizedBox(height: 16.0),
               TabBar(
                   tabs: [
