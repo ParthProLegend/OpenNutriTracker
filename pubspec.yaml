@@ -72,6 +72,8 @@ dependencies:
 
   supabase_flutter: ^2.8.2
 
+  flutter_health_connect: ^1.2.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
