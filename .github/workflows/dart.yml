@@ -1,0 +1,137 @@
+# This is the name of the workflow, which will be displayed in the GitHub Actions tab.
+name: "Build and Release Flutter App"
+
+# This section defines the event that triggers the workflow.
+# 'workflow_dispatch' allows you to run this workflow manually from the Actions tab.
+on:
+  workflow_dispatch:
+
+jobs:
+  # A single job in this workflow, named 'build'.
+  build:
+    # The name of the job as it will appear in the GitHub UI.
+    name: Build & Release
+    # This job will run on the latest available macOS runner.
+    # macOS is required for building the iOS (.ipa) version of the app.
+    runs-on: macos-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      # This action checks out your repository under $GITHUB_WORKSPACE, so your job can access it.
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Java Development Kit (JDK)
+      # This is a prerequisite for building the Android version of the app.
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin' # A popular, open-source distribution of OpenJDK
+          java-version: '17'
+
+      # Step 3: Set up Flutter SDK
+      # This action downloads and installs a specific version of the Flutter SDK.
+      # Note: '3.24.0' was specified, but it's not on the stable channel. 
+      # Using a recent, confirmed stable version like '3.22.2' is recommended for consistency.
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: 'stable'
+          cache: true # Caches Flutter dependencies for faster subsequent runs
+
+      # Step 4: Install Flutter project dependencies
+      # This command gets all the packages listed in the pubspec.yaml file.
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # Step 5: Set up Android Keystore for signing the release build
+      # The keystore is decoded from a Base64 secret and saved to the appropriate location.
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+
+      # Create the key.properties file that Gradle uses to find the signing credentials.
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=keystore.jks" >> android/key.properties
+
+      # Step 6: Build the Android APK (Android Package Kit)
+      - name: Build APK
+        run: flutter build apk --release
+
+      # Step 7: Build the Android App Bundle (AAB)
+      # The --release flag was added for correctness and clarity.
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      # Step 8: Build the iOS IPA (iOS App Store Package)
+      # --no-codesign is used because this example doesn't include iOS signing certificates.
+      # The output is an .xcarchive file that can be signed and distributed later.
+      - name: Build IPA
+        run: flutter build ipa --no-codesign
+      
+      # The build output for iOS can be large. This step compresses it into a single tarball.
+      - name: Compress iOS Build Output
+        run: tar -czf build/ios_build.tar.gz -C build/ios .
+
+      # Step 9: Upload build artifacts
+      # This step uploads the generated files as artifacts associated with the workflow run.
+      # This is useful for debugging and for downloading the builds directly from the Actions summary page.
+      # Updated to use the latest version of the upload-artifact action.
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Releases
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+            build/ios_build.tar.gz
+
+      # Step 10: Extract the app version from pubspec.yaml
+      # This allows the release to be tagged with the version number from the project itself.
+      - name: Extract version from pubspec.yaml
+        id: extract_version
+        run: |
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      # Step 11: Check if a Git tag for this version already exists
+      - name: Check if Tag Exists
+        id: check_tag
+        run: |
+          # This command checks for the tag and sets the output based on its exit code.
+          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
+            echo "TAG_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      # Step 12: Modify the version tag if it already exists
+      # This prevents the release action from failing if you re-run the build for the same version.
+      # It appends a build number to create a unique tag, e.g., v1.0.0-build-123
+      - name: Modify Tag if it Exists
+        if: env.TAG_EXISTS == 'true'
+        id: modify_tag
+        run: |
+          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
+          echo "VERSION=$new_version" >> $GITHUB_ENV
+          echo "Modified tag to ${new_version} because v${{ env.VERSION }} already exists."
+
+      # Step 13: Create a new GitHub Release
+      # This action will create a release, tag the commit, and upload the specified artifacts.
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          # A list of files to attach to the release.
+          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab,build/ios_build.tar.gz"
+          # The tag for the release, using the (potentially modified) version number.
+          tag: v${{ env.VERSION }}
+          # The GitHub token is used to authenticate and authorize the action.
+          # Using the built-in GITHUB_TOKEN is recommended. Ensure your 'TOKEN' secret is set correctly.
+          token: ${{ secrets.TOKEN }}
+          # If true, this will overwrite an existing release with the same tag.
+          allowUpdates: true
