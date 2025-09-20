@@ -48,6 +48,74 @@ class _AddActivityScreenState extends State<AddActivityScreen>
     super.dispose();
   }
 
+
+
+  @override
+  void _importFromHealthConnect() async {
+    // Show a loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // 1. Authorize and fetch activities from Health Connect
+      final isAuthorized = await HealthConnectService.authorize();
+      if (!isAuthorized) {
+        throw Exception('Permission to Health Connect denied.');
+      }
+      
+      final activities = await HealthConnectService.fetchActivities();
+      if (activities.isEmpty) {
+        throw Exception('No recent activities found in Health Connect.');
+      }
+
+      final lastActivity = activities.last;
+      final activityName = lastActivity['name'] as String;
+      final activityDuration = lastActivity['duration'] as int;
+
+      // 2. Find a matching activity within the app
+      final currentState = _activitiesBloc.state;
+      if (currentState is! ActivitiesLoadedState) {
+        throw Exception('App activities not loaded yet. Please wait a moment.');
+      }
+
+      final appActivities = currentState.activities;
+      final matchedActivity = appActivities.firstWhere(
+        (activity) => activity.name.toLowerCase() == activityName.toLowerCase(),
+        orElse: () => throw Exception('Activity "$activityName" not found in the app.'),
+      );
+
+      // 3. Save the matched activity with the imported duration using the existing BLoC
+      _recentActivitiesBloc.add(SaveRecentActivityEvent(
+        context: context,
+        physicalActivity: matchedActivity,
+        duration: activityDuration,
+        day: _day,
+      ));
+      
+      // Close the loading indicator
+      Navigator.of(context).pop(); 
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully imported $activityName!')),
+      );
+
+    } catch (e) {
+      // Close the loading indicator and show an error message
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import failed: ${e.toString().replaceFirst("Exception: ", "")}')),
+      );
+    }
+  }
+
+
+
+
+
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
