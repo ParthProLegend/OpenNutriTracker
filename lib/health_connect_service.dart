@@ -1,4 +1,4 @@
-import 'package:flutter_health_connect/flutter_health_connect.dart';
+// import 'package:flutter_health_connect/flutter_health_connect.dart';
 
 /// Model class for strongly typed activities
 class Activity {
