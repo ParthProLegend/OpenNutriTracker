@@ -1,0 +1,46 @@
+FROM ubuntu:22.04
+
+
+# basic deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+ca-certificates curl git unzip xz-utils zip libglu1-mesa locales procps pkg-config && \
+rm -rf /var/lib/apt/lists/*
+
+
+# set locale
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+
+# install Flutter SDK (stable)
+ENV FLUTTER_VERSION 3.13.0
+RUN git clone --branch stable https://github.com/flutter/flutter.git /usr/local/flutter && \
+/usr/local/flutter/bin/flutter --version || true
+
+
+# add flutter to PATH
+ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+
+# accept android licenses no-op (web-only container)
+
+
+# create vscode user
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME && \
+useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME
+
+
+USER $USERNAME
+WORKDIR /workspace
+
+
+# prewarm flutter artifacts
+RUN flutter precache --web
+
+
+CMD ["sleep", "infinity"]
