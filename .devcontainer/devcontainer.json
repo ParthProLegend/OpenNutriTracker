@@ -1,0 +1,17 @@
+{
+"name": "Flutter (OpenNutriTracker)",
+"build": {
+"dockerfile": "Dockerfile.web-only"
+},
+"customizations": {
+"vscode": {
+"extensions": [
+"Dart-Code.flutter",
+"Dart-Code.dart-code"
+]
+}
+},
+"postCreateCommand": "flutter pub get",
+"forwardPorts": [8080],
+"remoteUser": "vscode"
+}
