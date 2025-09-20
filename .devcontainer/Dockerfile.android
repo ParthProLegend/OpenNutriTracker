@@ -1,0 +1,52 @@
+FROM ubuntu:22.04
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+ca-certificates curl git unzip xz-utils zip libglu1-mesa locales procps pkg-config openjdk-17-jdk-headless && \
+rm -rf /var/lib/apt/lists/*
+
+
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+
+# Flutter
+RUN git clone --depth 1 --branch stable https://github.com/flutter/flutter.git /usr/local/flutter
+ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+
+# Android SDK (command-line tools)
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools
+WORKDIR /tmp
+RUN curl -fSL "https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip" -o cmdline.zip && \
+unzip cmdline.zip -d ${ANDROID_SDK_ROOT}/cmdline-tools && rm cmdline.zip
+
+
+ENV PATH="$ANDROID_SDK_ROOT/cmdline-tools/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+
+
+# Install platform tools, build-tools, and a platform (change versions as needed)
+RUN yes | sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --licenses || true
+RUN sdkmanager --sdk_root=${ANDROID_SDK_ROOT} "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+
+# create vscode user
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME && \
+useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME
+
+
+USER $USERNAME
+WORKDIR /workspace
+
+
+# Pre-cache flutter artifacts for android and web
+RUN flutter precache
+
+
+CMD ["sleep", "infinity"]
